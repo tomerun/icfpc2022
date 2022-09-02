@@ -1,0 +1,7 @@
+doc/
+problem/
+docs/
+lib/
+bin/
+.shards/
+*.dwarf
