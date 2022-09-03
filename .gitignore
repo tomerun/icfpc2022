@@ -5,3 +5,6 @@ docs/
 lib/
 problem/
 *.dwarf
+*.png
+*.zip
+log.txt

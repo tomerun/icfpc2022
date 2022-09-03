@@ -1,0 +1,18 @@
+name: solver
+version: 0.1.0
+
+authors:
+  - tomerun <tomerunmail@gmail.com>
+
+targets:
+  solver:
+    main: src/solver.cr
+
+dependencies:
+  stumpy_png:
+    github: stumpycr/stumpy_png
+    version: "~> 5.0"
+
+crystal: 0.36.1
+
+license: MIT
