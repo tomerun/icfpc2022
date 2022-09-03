@@ -41,9 +41,10 @@ class Solver
   hi, _ = blocks.line_cut_horz(hi, 40)
   blocks.swap(lo, hi)
 
-  # blocks.bs.each do |b|
-  #   debug(b)
-  # end
   blocks.output_ops(STDOUT)
   blocks.create_image("1.png")
+
+  diff = blocks.similarity(target)
+  cost = blocks.total_cost
+  debug("score:#{cost + diff} cost:#{cost} similarity:#{diff}")
 end

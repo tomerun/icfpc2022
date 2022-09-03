@@ -31,8 +31,12 @@ end
 
 alias RGBA = Tuple(Int32, Int32, Int32, Int32)
 
+def color_dist(c0, c1)
+  return Math.sqrt((c0[0] - c1[0]) ** 2 + (c0[1] - c1[1]) ** 2 + (c0[2] - c1[2]) ** 2 + (c0[3] - c1[3]) ** 2)
+end
+
 class Target
-  getter :id, :h, :w
+  getter :id, :h, :w, :pixel
 
   def initialize(@id : Int32)
     @h = @w = 0
@@ -143,18 +147,27 @@ class Block
     return @x + @w
   end
 
+  def s
+    return @h * @w
+  end
+
   def to_s(io)
     io << "#{@id.join(".")} [#{@y}, #{@x}] - [#{top}, #{right}] \n    " << @areas.join(", ")
   end
 end
 
 class Blocks
-  getter :bs
+  getter :bs, :total_cost
+  @h : Int32
+  @w : Int32
 
   def initialize(target)
     @bs = [] of Block
     @ops = [] of Op
     @next_global_block_id = 1
+    @total_cost = 0
+    @h = target.h
+    @w = target.w
 
     init_json = PROBLEM_PATH.join(sprintf("%04d.initial.json", target.id))
     if File.exists?(init_json)
@@ -202,6 +215,9 @@ class Blocks
     end
     @bs << b0 << b1
     @ops << OpLineCut.new(block.id, true, pos)
+    cost = (7.0 * (@h * @w) / block.s).round.to_i
+    debug("line_cut_vert cost:#{cost}")
+    @total_cost += cost
     return b0, b1
   end
 
@@ -224,6 +240,9 @@ class Blocks
     end
     @bs << b0 << b1
     @ops << OpLineCut.new(block.id, false, pos)
+    cost = (7.0 * (@h * @w) / block.s).round.to_i
+    debug("line_cut_horz cost:#{cost}")
+    @total_cost += cost
     return b0, b1
   end
 
@@ -275,6 +294,9 @@ class Blocks
     end
     @bs << b0 << b1 << b2 << b3
     @ops << OpPointCut.new(block.id, pos_y, pos_x)
+    cost = (10.0 * (@h * @w) / block.s).round.to_i
+    debug("point_cut     cost:#{cost}")
+    @total_cost += cost
     return b0, b1, b2, b3
   end
 
@@ -282,16 +304,32 @@ class Blocks
     block.areas.clear
     block.areas << Area.new(block.y, block.x, block.h, block.w, color)
     @ops << OpColor.new(block.id, color)
+    cost = (5.0 * (@h * @w) / block.s).round.to_i
+    debug("color         cost:#{cost}")
+    @total_cost += cost
     return block
   end
 
   def swap(block0, block1)
     assert(block0.h == block1.h && block0.w == block1.w, [block0, block1])
     assert(block0 != block1)
+    my = block1.y - block0.y
+    mx = block1.x - block0.x
     block0.y, block1.y = block1.y, block0.y
     block0.x, block1.x = block1.x, block0.x
-    block0.areas, block1.areas = block1.areas, block0.areas
+    block0.areas.each do |a|
+      a.y += my
+      a.x += mx
+    end
+    block1.areas.each do |a|
+      a.y -= my
+      a.x -= mx
+    end
+    # block0.areas, block1.areas = block1.areas, block0.areas
     @ops << OpSwap.new(block0.id, block1.id)
+    cost = (3.0 * (@h * @w) / block0.s).round.to_i
+    debug("swap          cost:#{cost}")
+    @total_cost += cost
     return block0, block1
   end
 
@@ -330,6 +368,9 @@ class Blocks
     @bs << block_new
     @next_global_block_id += 1
     @ops << OpMerge.new(block0.id, block1.id)
+    cost = (1.0 * (@h * @w) / {block0.s, block1.s}.max).round.to_i
+    debug("merge         cost:#{cost}")
+    @total_cost += cost
     return block_new
   end
 
@@ -337,18 +378,44 @@ class Blocks
     io << @ops.join("\n") << "\n"
   end
 
-  def create_image(file_name)
-    height = @bs.max_of { |b| b.top }
-    width = @bs.max_of { |b| b.right }
-    canvas = StumpyCore::Canvas.new(width, height)
+  def bitmap
+    assert(@h == @bs.max_of { |b| b.top })
+    assert(@w == @bs.max_of { |b| b.right })
+    bm = Array.new(@h) { Array.new(@w, {0, 0, 0, 0}) }
     @bs.each do |b|
       b.areas.each do |a|
         a.y.upto(a.top - 1) do |y|
           a.x.upto(a.right - 1) do |x|
-            color = StumpyCore::RGBA.from_rgba(*a.c)
-            canvas[x, height - 1 - y] = color
+            bm[y][x] = a.c
           end
         end
+      end
+    end
+    return bm
+  end
+
+  def similarity(target)
+    painted = bitmap()
+    assert(target.h == painted.size)
+    assert(target.w == painted[0].size)
+    sum = 0.0
+    target.h.times do |y|
+      target.w.times do |x|
+        # debug([y, x, target.pixel[y][x], painted[y][x], color_dist(target.pixel[y][x], painted[y][x])])
+        sum += color_dist(target.pixel[y][x], painted[y][x])
+      end
+    end
+    alpha = 0.005
+    return (sum * alpha).round.to_i
+  end
+
+  def create_image(file_name)
+    painted = bitmap()
+    canvas = StumpyCore::Canvas.new(@w, @h)
+    @h.times do |y|
+      @w.times do |x|
+        color = StumpyCore::RGBA.from_rgba(*painted[y][x])
+        canvas[x, @h - 1 - y] = color
       end
     end
     StumpyPNG.write(canvas, file_name)
