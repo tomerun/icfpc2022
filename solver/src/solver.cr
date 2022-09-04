@@ -15,8 +15,9 @@ class Solver
   def solve
     blocks = Blocks.new(@target)
     best_blocks = blocks
+    dp_sizes = [20]
     if blocks.bs.size == 1
-      [20].each do |size|
+      dp_sizes.each do |size|
         blocks = Blocks.new(@target)
         solve_dp(blocks, size)
         debug("size:#{size} cost:#{blocks.total_cost} similarity:#{blocks.similarity(@target)}")
@@ -25,13 +26,37 @@ class Solver
         end
       end
     else
-      solve_swap(blocks)
-      best_blocks = blocks
+      dp_sizes.each do |size|
+        blocks = Blocks.new(@target)
+        merge_blocks(blocks)
+        solve_dp(blocks, size)
+        debug("size:#{size} cost:#{blocks.total_cost} similarity:#{blocks.similarity(@target)}")
+        if blocks.total_cost + blocks.similarity(@target) < best_blocks.total_cost + best_blocks.similarity(@target)
+          best_blocks = blocks
+        end
+      end
+      # solve_swap(blocks)
+      # best_blocks = blocks
     end
     diff = best_blocks.similarity(@target)
     cost = best_blocks.total_cost
     debug("score:#{cost + diff} cost:#{cost} similarity:#{diff}")
     return best_blocks.ops
+  end
+
+  def merge_blocks(blocks)
+    bs = blocks.bs.sort_by { |b| {b.y, b.x} }.group_by { |b| b.y }
+    rows = bs.keys.sort.map do |y|
+      b = bs[y][0]
+      1.upto(bs[y].size - 1) do |i|
+        b = blocks.merge(b, bs[y][i])
+      end
+      b
+    end.to_a
+    b = rows[0]
+    1.upto(rows.size - 1) do |i|
+      b = blocks.merge(b, rows[i])
+    end
   end
 
   def solve_dp(blocks, size)

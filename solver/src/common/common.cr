@@ -253,13 +253,19 @@ class Blocks
       json = File.open(init_json) { |f| JSON.parse(f) }
       json["blocks"].as_a.each do |elem|
         bid = elem["blockId"].as_s.to_i
+        @next_global_block_id = {@next_global_block_id, bid + 1}.max
         x = elem["bottomLeft"][0].as_i
         y = elem["bottomLeft"][1].as_i
         r = elem["topRight"][0].as_i
         t = elem["topRight"][1].as_i
-        color = elem["color"].as_a.map { |v| v.as_i }
         b = Block.new(y, x, t - y, r - x, [bid], @bs.size)
-        b.areas << Area.new(y, x, t - y, r - x, RGB.from(color))
+        color = elem["color"]?
+        if color
+          b.areas << Area.new(y, x, t - y, r - x, RGB.from(color.as_a.map { |v| v.as_i }.first(3)))
+        else
+          # dummy color
+          b.areas << Area.new(y, x, t - y, r - x, {256, 256, 256})
+        end
         @bs << b
       end
     else
