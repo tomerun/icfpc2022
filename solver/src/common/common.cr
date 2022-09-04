@@ -191,8 +191,10 @@ class Blocks
   end
 
   private def detach(block)
+    assert(0 <= block.idx && block.idx < @bs.size, block.idx)
     @bs[-1].idx = block.idx
     @bs[block.idx], @bs[-1] = @bs[-1], @bs[block.idx]
+    block.idx = -1
     @bs.pop
   end
 
