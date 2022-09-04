@@ -10,36 +10,61 @@ class Solver
   blocks = Blocks.new(target)
   root = blocks.bs[0]
   blocks.color(root, {0, 74, 173, 255})
-  _, _, _, b = blocks.point_cut(root, 40, 360)
+  w0, w1, w2, b = blocks.point_cut(root, 40, 360)
   blocks.color(b, {255, 255, 255, 255})
+  b0, b1, b2, b3 = blocks.point_cut(b, 200, 200)
+  blocks.color(b1, {0, 0, 0, 255})
+  blocks.color(b3, {0, 0, 0, 255})
+  left = blocks.merge(b0, b3)
+  right = blocks.merge(b1, b2)
+  left0, left1 = blocks.line_cut_vert(left, 40)
+  left1, left2 = blocks.line_cut_vert(left1, 120)
+  right0, right1 = blocks.line_cut_vert(right, 40)
+  right1, left1 = blocks.swap(left1, right1)
+  left = blocks.merge(left0, left1)
+  left = blocks.merge(left, left2)
+  right = blocks.merge(right0, right1)
+  left0, left1 = blocks.line_cut_vert(left, 80)
+  left1, left2 = blocks.line_cut_vert(left1, 40)
+  right1, right2 = blocks.line_cut_vert(right, 120)
+  right0, right1 = blocks.line_cut_vert(right1, 80)
+  right1, left1 = blocks.swap(left1, right1)
+  b = blocks.merge(left2, right0)
+  b = blocks.merge(left1, b)
+  b = blocks.merge(left0, b)
+  b = blocks.merge(right1, b)
+  b = blocks.merge(right2, b)
+
   lo, hi = blocks.line_cut_horz(b, 200)
-  lo, hi = 2.times.map do |i|
-    b = {lo, hi}[i]
-    lines = [] of Block
-    8.times do |j|
-      left, b = blocks.line_cut_vert(b, 40)
-      if (i + j) % 2 == 1
-        blocks.color(left, {0, 0, 0, 255})
-      end
-      lines << left
-    end
-    if (i + lines.size) % 2 == 1
-      blocks.color(b, {0, 0, 0, 255})
-    end
-    lines.reverse_each do |mb|
-      b = blocks.merge(b, mb)
-    end
-    b
-  end.to_a
   lo0, lo = blocks.line_cut_horz(lo, 40)
   lo1, lo2 = blocks.line_cut_horz(lo, 120)
   hi0, hi1 = blocks.line_cut_horz(hi, 40)
-  hi, lo = blocks.swap(lo1, hi1)
-  _, lo = blocks.line_cut_horz(lo, 40)
-  lo, _ = blocks.line_cut_horz(lo, 40)
-  _, hi = blocks.line_cut_horz(hi, 40)
-  hi, _ = blocks.line_cut_horz(hi, 40)
-  blocks.swap(lo, hi)
+  hi1, lo1 = blocks.swap(lo1, hi1)
+  lo = blocks.merge(lo0, lo1)
+  lo = blocks.merge(lo, lo2)
+  hi = blocks.merge(hi0, hi1)
+  lo0, lo1 = blocks.line_cut_horz(lo, 80)
+  lo1, lo2 = blocks.line_cut_horz(lo1, 40)
+  hi1, hi2 = blocks.line_cut_horz(hi, 120)
+  hi0, hi1 = blocks.line_cut_horz(hi1, 80)
+  hi1, lo1 = blocks.swap(lo1, hi1)
+
+  b = blocks.merge(lo0, lo1)
+  b = blocks.merge(b, lo2)
+  b = blocks.merge(b, hi0)
+  b = blocks.merge(b, hi1)
+  b = blocks.merge(b, hi2)
+  left = blocks.merge(b, w0)
+  right = blocks.merge(w1, w2)
+  b = blocks.merge(left, right)
+  b0, b1, b2, b3 = blocks.point_cut(b, 83, 317)
+  blocks.color(b1, {0, 74, 173, 255})
+  left = blocks.merge(b0, b3)
+  right = blocks.merge(b1, b2)
+  b = blocks.merge(left, right)
+  b0, b1, b2, b3 = blocks.point_cut(b, 43, 357)
+  blocks.color(b0, {0, 74, 173, 255})
+  blocks.color(b2, {0, 74, 173, 255})
 
   blocks.output_ops(STDOUT)
   blocks.create_image("1.png")
