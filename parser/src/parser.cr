@@ -8,7 +8,7 @@ File.open("../problem/#{id}.txt", "w") do |f|
   f << h << " " << w << "\n"
   h.times do |i|
     w.times do |j|
-      pixel = canvas[i, j]
+      pixel = canvas[j, i]
       f << pixel.to_rgba.join(" ") << "\n"
     end
   end
