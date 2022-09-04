@@ -29,10 +29,10 @@ macro assert(cond, msg = "", caller_line = __LINE__)
   {% end %}
 end
 
-alias RGBA = Tuple(Int32, Int32, Int32, Int32)
+alias RGB = Tuple(Int32, Int32, Int32)
 
 def color_dist(c0, c1)
-  return Math.sqrt((c0[0] - c1[0]) ** 2 + (c0[1] - c1[1]) ** 2 + (c0[2] - c1[2]) ** 2 + (c0[3] - c1[3]) ** 2)
+  return Math.sqrt((c0[0] - c1[0]) ** 2 + (c0[1] - c1[1]) ** 2 + (c0[2] - c1[2]) ** 2)
 end
 
 class Target
@@ -40,21 +40,21 @@ class Target
 
   def initialize(@id : Int32)
     @h = @w = 0
-    @pixel = [] of Array(RGBA)
+    @pixel = [] of Array(RGB)
     File.open(PROBLEM_PATH.join(sprintf("%04d.txt", @id))) do |f|
       @h, @w = f.read_line.split.map(&.to_i)
       @pixel = Array.new(@h) do
-        Array.new(@w, {0, 0, 0, 0})
+        Array.new(@w, {0, 0, 0})
       end
       @h.times do |i|
         @w.times do |j|
           values = f.read_line.split.map(&.to_i)
-          @pixel[@h - 1 - i][j] = RGBA.from(values) # upside down
+          @pixel[@h - 1 - i][j] = RGB.from(values[0..2]) # upside down
         end
       end
     end
     @histos = Array(Array(Array(Array(Int32)))).new(4) { Array.new(@h + 1) { Array.new(@w + 1) { Array.new(256, 0) } } }
-    4.times do |i|
+    3.times do |i|
       @h.times do |y|
         @w.times do |x|
           256.times do |j|
@@ -68,7 +68,7 @@ class Target
 
   def best_color(bottom, left, top, right)
     cnt = (top - bottom) * (right - left)
-    color = 4.times.map do |i|
+    color = 3.times.map do |i|
       histo = @histos[i]
       sum = 0
       median = 0
@@ -81,7 +81,7 @@ class Target
       end
       median
     end.to_a
-    return RGBA.from(color)
+    return RGB.from(color)
   end
 
   def clustering(k)
@@ -113,11 +113,11 @@ class OpPointCut
 end
 
 class OpColor
-  def initialize(@bid : BlockId, @color : RGBA)
+  def initialize(@bid : BlockId, @color : RGB)
   end
 
   def to_s(io)
-    io << "color " << wrap_bracket(@bid.join(".")) << " " << wrap_bracket(@color.join(","))
+    io << "color " << wrap_bracket(@bid.join(".")) << " " << wrap_bracket(@color.join(",") + ",255")
   end
 end
 
@@ -144,7 +144,7 @@ alias Op = (OpLineCut | OpPointCut | OpColor | OpSwap | OpMerge)
 class Area
   property :y, :x, :w, :h, :c
 
-  def initialize(@y : Int32, @x : Int32, @h : Int32, @w : Int32, @c : RGBA)
+  def initialize(@y : Int32, @x : Int32, @h : Int32, @w : Int32, @c : RGB)
   end
 
   def top
@@ -209,12 +209,12 @@ class Blocks
         t = elem["topRight"][1].as_i
         color = elem["color"].as_a.map { |v| v.as_i }
         b = Block.new(y, x, t - y, r - x, [bid], @bs.size)
-        b.areas << Area.new(y, x, t - y, r - x, RGBA.from(color))
+        b.areas << Area.new(y, x, t - y, r - x, RGB.from(color))
         @bs << b
       end
     else
       all = Block.new(0, 0, target.h, target.w, [0], 0)
-      all.areas << Area.new(0, 0, target.h, target.w, {255, 255, 255, 255})
+      all.areas << Area.new(0, 0, target.h, target.w, {255, 255, 255})
       @bs << all
     end
   end
@@ -412,7 +412,7 @@ class Blocks
   def bitmap
     assert(@h == @bs.max_of { |b| b.top })
     assert(@w == @bs.max_of { |b| b.right })
-    bm = Array.new(@h) { Array.new(@w, {0, 0, 0, 0}) }
+    bm = Array.new(@h) { Array.new(@w, {0, 0, 0}) }
     @bs.each do |b|
       b.areas.each do |a|
         a.y.upto(a.top - 1) do |y|
@@ -448,7 +448,7 @@ class Blocks
     canvas = StumpyCore::Canvas.new(@w, @h)
     @h.times do |y|
       @w.times do |x|
-        color = StumpyCore::RGBA.from_rgba(*painted[y][x])
+        color = StumpyCore::RGBA.from_rgb(*painted[y][x])
         canvas[x, @h - 1 - y] = color
       end
     end

@@ -29,19 +29,17 @@ def main
   puts ops.join("\n")
 end
 
-main
-
 def problem1
   target = Target.new(1)
   blocks = Blocks.new(target)
   root = blocks.bs[0]
-  blocks.color(root, {0, 74, 173, 255})
+  blocks.color(root, {0, 74, 173})
   _, b, _, _ = blocks.point_cut(root, 399, 1)
   w0, w1, w2, b = blocks.point_cut(b, 43, 356)
-  blocks.color(b, {255, 255, 255, 255})
+  blocks.color(b, {255, 255, 255})
   b0, b1, b2, b3 = blocks.point_cut(b, 198, 198)
-  blocks.color(b1, {0, 0, 0, 255})
-  blocks.color(b3, {0, 0, 0, 255})
+  blocks.color(b1, {0, 0, 0})
+  blocks.color(b3, {0, 0, 0})
   left = blocks.merge(b0, b3)
   right = blocks.merge(b1, b2)
   left0, left1 = blocks.line_cut_vert(left, 40)
@@ -85,7 +83,7 @@ def problem1
   right = blocks.merge(w1, w2)
   b = blocks.merge(left, right)
   b0, b1, b2, b3 = blocks.point_cut(b, 83, 399 - 43 - 39)
-  blocks.color(b1, {0, 74, 173, 255})
+  blocks.color(b1, {0, 74, 173})
 
   puts blocks.ops.join("\n")
   blocks.create_image("1.png")
@@ -94,3 +92,5 @@ def problem1
   cost = blocks.total_cost
   debug("score:#{cost + diff} cost:#{cost} similarity:#{diff}")
 end
+
+main
