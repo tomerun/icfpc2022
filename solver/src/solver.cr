@@ -6,6 +6,32 @@ INF        = 1 << 29
 RND        = Random.new(2)
 
 class Solver
+  def initialize(@id : Int32)
+  end
+
+  def solve
+    target = Target.new(@id)
+    blocks = Blocks.new(target)
+    if blocks.bs.size == 1
+      root = blocks.bs[0]
+      blocks.color(root, target.best_color(0, 0, target.h, target.w))
+    end
+    diff = blocks.similarity(target)
+    cost = blocks.total_cost
+    debug("score:#{cost + diff} cost:#{cost} similarity:#{diff}")
+    return blocks.ops
+  end
+end
+
+def main
+  solver = Solver.new(ARGV[0].to_i)
+  ops = solver.solve
+  puts ops.join("\n")
+end
+
+main
+
+def problem1
   target = Target.new(1)
   blocks = Blocks.new(target)
   root = blocks.bs[0]
@@ -61,7 +87,7 @@ class Solver
   b0, b1, b2, b3 = blocks.point_cut(b, 83, 399 - 43 - 39)
   blocks.color(b1, {0, 74, 173, 255})
 
-  blocks.output_ops(STDOUT)
+  puts blocks.ops.join("\n")
   blocks.create_image("1.png")
 
   diff = blocks.similarity(target)

@@ -53,6 +53,35 @@ class Target
         end
       end
     end
+    @histos = Array(Array(Array(Array(Int32)))).new(4) { Array.new(@h + 1) { Array.new(@w + 1) { Array.new(256, 0) } } }
+    4.times do |i|
+      @h.times do |y|
+        @w.times do |x|
+          256.times do |j|
+            @histos[i][y + 1][x + 1][j] = @histos[i][y][x + 1][j] + @histos[i][y + 1][x][j] - @histos[i][y][x][j]
+          end
+          @histos[i][y + 1][x + 1][@pixel[y][x][i]] += 1
+        end
+      end
+    end
+  end
+
+  def best_color(bottom, left, top, right)
+    cnt = (top - bottom) * (right - left)
+    color = 4.times.map do |i|
+      histo = @histos[i]
+      sum = 0
+      median = 0
+      256.times do |j|
+        sum += histo[top][right][j] - histo[top][left][j] - histo[bottom][right][j] + histo[bottom][left][j]
+        if sum * 2 >= cnt
+          median = j
+          break
+        end
+      end
+      median
+    end.to_a
+    return RGBA.from(color)
   end
 
   def clustering(k)
@@ -157,7 +186,7 @@ class Block
 end
 
 class Blocks
-  getter :bs, :total_cost
+  getter :bs, :total_cost, :ops
   @h : Int32
   @w : Int32
 
