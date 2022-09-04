@@ -1,9 +1,13 @@
-#!/bin/bash -eu
+#!/bin/bash -exu
 
-shards build -Dlocal --release
-for (( i = 1; i <= 40; i++ )); do
-	seed=$(printf "%04d" $i)
-	echo "seed:$seed"
-	bin/solver $i > ../output/$seed.txt 2> log.txt
-	tail -n 1 log.txt 
-done
+IDX=${AWS_BATCH_JOB_ARRAY_INDEX:-0}
+SEED=$(expr $START_SEED + $IDX)
+ISL_FILE=$(printf "%04d" $SEED).txt
+
+aws s3 cp s3://marathon-tester/ICFPC2022/problem.zip .
+unzip problem.zip
+shards build --release -Dlocal
+PROBLEM=./problem bin/solver ${SEED} > $ISL_FILE 2> log.txt
+
+aws s3 cp $ISL_FILE s3://marathon-tester/$RESULT_PATH/$ISL_FILE
+aws s3 cp log.txt s3://marathon-tester/$RESULT_PATH/$SEED.log
