@@ -341,9 +341,9 @@ class Blocks
     if block0.x == block1.x && block0.w == block1.w
       lo, hi = block0.y < block1.y ? {block0, block1} : {block1, block0}
       assert(lo.top == hi.y)
-      block_new = Block.new(lo.y, block0.x, block0.h + block1.h, block0.w, [@next_global_block_id], @bs.size)
+      block_new = Block.new(lo.y, lo.x, block0.h + block1.h, lo.w, [@next_global_block_id], @bs.size)
       if is_simple_merge
-        block_new.areas << Area.new(block0.y, block0.x, block0.h, block0.w, block0.areas[0].c)
+        block_new.areas << Area.new(lo.y, lo.x, block0.h + block1.h, lo.w, lo.areas[0].c)
       else
         # TODO: smart merge
         block_new.areas.concat(block0.areas)
@@ -354,7 +354,7 @@ class Blocks
       assert(left.right == right.x)
       block_new = Block.new(block0.y, left.x, block0.h, block0.w + block1.w, [@next_global_block_id], @bs.size)
       if is_simple_merge
-        block_new.areas << Area.new(block0.y, block0.x, block0.h, block0.w, block0.areas[0].c)
+        block_new.areas << Area.new(left.y, left.x, left.h, block0.w + block1.w, left.areas[0].c)
       else
         # TODO: smart merge
         block_new.areas.concat(block0.areas)
@@ -401,8 +401,11 @@ class Blocks
     sum = 0.0
     target.h.times do |y|
       target.w.times do |x|
-        # debug([y, x, target.pixel[y][x], painted[y][x], color_dist(target.pixel[y][x], painted[y][x])])
-        sum += color_dist(target.pixel[y][x], painted[y][x])
+        dist = color_dist(target.pixel[y][x], painted[y][x])
+        if dist > 20.0
+          debug([y, x, target.pixel[y][x], painted[y][x], dist])
+        end
+        sum += dist
       end
     end
     alpha = 0.005
