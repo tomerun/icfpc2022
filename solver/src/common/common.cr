@@ -311,7 +311,7 @@ class Blocks
   end
 
   def swap(block0, block1)
-    assert(block0.h == block1.h && block0.w == block1.w, [block0, block1])
+    assert(block0.h == block1.h && block0.w == block1.w, [block0, block1].join("\n"))
     assert(block0 != block1)
     my = block1.y - block0.y
     mx = block1.x - block0.x
@@ -402,7 +402,7 @@ class Blocks
     target.h.times do |y|
       target.w.times do |x|
         dist = color_dist(target.pixel[y][x], painted[y][x])
-        if dist > 20.0
+        if dist > 40.0
           debug([y, x, target.pixel[y][x], painted[y][x], dist])
         end
         sum += dist
