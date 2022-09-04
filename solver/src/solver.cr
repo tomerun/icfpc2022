@@ -4,22 +4,172 @@ START_TIME = Time.utc.to_unix_ms
 TL         = 2980
 INF        = 1 << 29
 RND        = Random.new(2)
+L          = 400
 
 class Solver
   def initialize(@id : Int32)
+    @target = Target.new(@id)
+    assert(@target.h == L && @target.w == L)
   end
 
   def solve
-    target = Target.new(@id)
-    blocks = Blocks.new(target)
+    blocks = Blocks.new(@target)
+    best_blocks = blocks
     if blocks.bs.size == 1
-      root = blocks.bs[0]
-      blocks.color(root, target.best_color(0, 0, target.h, target.w))
+      [20].each do |size|
+        blocks = Blocks.new(@target)
+        solve_dp(blocks, size)
+        debug("size:#{size} cost:#{blocks.total_cost} similarity:#{blocks.similarity(@target)}")
+        if blocks.total_cost + blocks.similarity(@target) < best_blocks.total_cost + best_blocks.similarity(@target)
+          best_blocks = blocks
+        end
+      end
+    else
+      solve_swap(blocks)
+      best_blocks = blocks
     end
-    diff = blocks.similarity(target)
-    cost = blocks.total_cost
+    diff = best_blocks.similarity(@target)
+    cost = best_blocks.total_cost
     debug("score:#{cost + diff} cost:#{cost} similarity:#{diff}")
-    return blocks.ops
+    return best_blocks.ops
+  end
+
+  def solve_dp(blocks, size)
+    dp = Array.new(L // size) do
+      Array.new(L // size) do
+        Array.new(L // size) do
+          Array.new(L // size, INF)
+        end
+      end
+    end
+    dp_best = Array.new(L // size) do
+      Array.new(L // size) do
+        Array.new(L // size) do
+          Array.new(L // size, 0)
+        end
+      end
+    end
+    (L // size).times do |h|
+      (L // size).times do |w|
+        (L // size - h).times do |bottom|
+          top = bottom + h
+          (L // size - w).times do |left|
+            right = left + w
+            fill_dp(blocks, size, dp, dp_best, bottom, left, top, right)
+          end
+        end
+      end
+      debug("dp...#{h}")
+    end
+    debug(dp[0][0][-1][-1])
+    recover_dp(blocks, blocks.bs[0], size, dp_best, 0, 0, L // size - 1, L // size - 1)
+  end
+
+  def recover_dp(blocks, block, size, dp_best, bottom, left, top, right)
+    cut_pos_y = dp_best[bottom][left][top][right] & 0x3FF
+    cut_pos_x = dp_best[bottom][left][top][right] >> 10
+    if cut_pos_y == 0 && cut_pos_x == 0
+      color = @target.best_color(bottom * size, left * size, (top + 1) * size, (right + 1) * size)
+      if !(block.areas.size == 1 && block.areas[0].c == color)
+        blocks.color(block, color)
+      end
+    elsif cut_pos_y == 0
+      block = recover_dp(blocks, block, size, dp_best, bottom, left, top, cut_pos_x - 1)
+      block_left, block_right = blocks.line_cut_vert(block, cut_pos_x * size - block.x)
+      block_right = recover_dp(blocks, block_right, size, dp_best, bottom, cut_pos_x, top, right)
+      block = blocks.merge(block_left, block_right)
+    elsif cut_pos_x == 0
+      block = recover_dp(blocks, block, size, dp_best, bottom, left, cut_pos_y - 1, right)
+      block_bottom, block_top = blocks.line_cut_horz(block, cut_pos_y * size - block.y)
+      block_top = recover_dp(blocks, block_top, size, dp_best, cut_pos_y, left, top, right)
+      block = blocks.merge(block_bottom, block_top)
+    else
+      block = recover_dp(blocks, block, size, dp_best, bottom, left, cut_pos_y - 1, cut_pos_x - 1)
+
+      block_bottom, block_top = blocks.line_cut_horz(block, cut_pos_y * size - block.y)
+      block_top = recover_dp(blocks, block_top, size, dp_best, cut_pos_y, left, top, cut_pos_x - 1)
+      block = blocks.merge(block_bottom, block_top)
+
+      block_left, block_right = blocks.line_cut_vert(block, cut_pos_x * size - block.x)
+      block_right = recover_dp(blocks, block_right, size, dp_best, bottom, cut_pos_x, cut_pos_y - 1, right)
+      block_bottom, block_top = blocks.line_cut_horz(block_right, cut_pos_y * size - block_right.y)
+      block_top = recover_dp(blocks, block_top, size, dp_best, cut_pos_y, cut_pos_x, top, right)
+      block_right = blocks.merge(block_bottom, block_top)
+      block = blocks.merge(block_left, block_right)
+    end
+    return block
+  end
+
+  def fill_dp(blocks, size, dp, dp_best, bottom, left, top, right)
+    dp[bottom][left][top][right] = dp_paint_cost(size, bottom, left, top, right)
+    dp_best[bottom][left][top][right] = 0
+    y = bottom * size
+    x = left * size
+    wh_h = L - y
+    wh_w = L - x
+    # cut horizontal
+    (bottom + 1).upto(top) do |mid|
+      cost = dp[bottom][left][mid - 1][right] + dp[mid][left][top][right]
+      cost += (OpLineCut.cost * L * L / (wh_h * wh_w)).round.to_i
+      cost += (OpMerge.cost * L * L / (wh_w * {mid - bottom, top - mid + 1}.max * size)).round.to_i
+      if cost < dp[bottom][left][top][right]
+        dp[bottom][left][top][right] = cost
+        dp_best[bottom][left][top][right] = mid
+      end
+    end
+
+    # cut vertical
+    (left + 1).upto(top) do |mid|
+      cost = dp[bottom][left][top][mid - 1] + dp[bottom][mid][top][right]
+      cost += (OpLineCut.cost * L * L / (wh_h * wh_w)).round.to_i
+      cost += (OpMerge.cost * L * L / (wh_h * {mid - left, right - mid + 1}.max * size)).round.to_i
+      if cost < dp[bottom][left][top][right]
+        dp[bottom][left][top][right] = cost
+        dp_best[bottom][left][top][right] = mid << 10
+      end
+    end
+
+    # cut point
+    (bottom + 1).upto(top) do |mid_y|
+      bottom_len = (mid_y - bottom) * size
+      (left + 1).upto(top) do |mid_x|
+        left_len = (mid_x - left) * size
+        cost = dp[bottom][left][mid_y - 1][mid_x - 1] + dp[bottom][mid_x][mid_y - 1][right] +
+               dp[mid_y][left][top][mid_x - 1] + dp[mid_y][mid_x][top][right]
+        cost += (OpLineCut.cost * L * L / (wh_h * wh_w)).round.to_i
+        cost += (OpMerge.cost * L * L / (wh_w * {bottom_len, wh_h - bottom_len}.max)).round.to_i
+        cost += (OpLineCut.cost * L * L / (wh_h * wh_w)).round.to_i
+        cost += (OpLineCut.cost * L * L / (wh_h * (wh_w - left_len))).round.to_i
+        cost += (OpMerge.cost * L * L / ((wh_w - left_len) * {bottom_len, wh_h - bottom_len}.max)).round.to_i
+        cost += (OpMerge.cost * L * L / (wh_h * {left_len, wh_w - left_len}.max)).round.to_i
+        if cost < dp[bottom][left][top][right]
+          dp[bottom][left][top][right] = cost
+          dp_best[bottom][left][top][right] = (mid_x << 10) || mid_y
+        end
+      end
+    end
+  end
+
+  def dp_paint_cost(size, bottom, left, top, right)
+    y = bottom * size
+    x = left * size
+    t = (top + 1) * size
+    r = (right + 1) * size
+    wh_h = L - y
+    wh_w = L - x
+    color = @target.best_color(y, x, t, r)
+    diff_raw = 0.0
+    y.upto(t - 1) do |i|
+      x.upto(r - 1) do |j|
+        diff_raw += color_dist(color, @target.pixel[i][j])
+      end
+    end
+    diff = (diff_raw * 0.005).round.to_i
+    return (OpColor.cost * L * L / (wh_h * wh_w)).round.to_i + diff
+  end
+
+  def solve_swap(blocks)
+    # TODO
   end
 end
 

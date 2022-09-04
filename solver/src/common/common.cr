@@ -95,47 +95,97 @@ def wrap_bracket(s)
 end
 
 class OpLineCut
+  @@cost = 7
+
   def initialize(@bid : BlockId, @is_vertical : Bool, @pos : Int32)
   end
 
   def to_s(io)
     io << "cut " << wrap_bracket(@bid.join(".")) << " " << wrap_bracket(@is_vertical ? "x" : "y") << " " << wrap_bracket(@pos)
   end
+
+  def self.cost
+    @@cost
+  end
+
+  def self.cost=(v)
+    @@cost = v
+  end
 end
 
 class OpPointCut
+  @@cost = 10
+
   def initialize(@bid : BlockId, @y : Int32, @x : Int32)
   end
 
   def to_s(io)
     io << "cut " << wrap_bracket(@bid.join(".")) << " " << wrap_bracket("#{@x},#{@y}")
   end
+
+  def self.cost
+    @@cost
+  end
+
+  def self.cost=(v)
+    @@cost = v
+  end
 end
 
 class OpColor
+  @@cost = 5
+
   def initialize(@bid : BlockId, @color : RGB)
   end
 
   def to_s(io)
     io << "color " << wrap_bracket(@bid.join(".")) << " " << wrap_bracket(@color.join(",") + ",255")
   end
+
+  def self.cost
+    @@cost
+  end
+
+  def self.cost=(v)
+    @@cost = v
+  end
 end
 
 class OpSwap
+  @@cost = 3
+
   def initialize(@bid0 : BlockId, @bid1 : BlockId)
   end
 
   def to_s(io)
     io << "swap " << wrap_bracket(@bid0.join(".")) << " " << wrap_bracket(@bid1.join("."))
   end
+
+  def self.cost
+    @@cost
+  end
+
+  def self.cost=(v)
+    @@cost = v
+  end
 end
 
 class OpMerge
+  @@cost = 1
+
   def initialize(@bid0 : BlockId, @bid1 : BlockId)
   end
 
   def to_s(io)
     io << "merge " << wrap_bracket(@bid0.join(".")) << " " << wrap_bracket(@bid1.join("."))
+  end
+
+  def self.cost
+    @@cost
+  end
+
+  def self.cost=(v)
+    @@cost = v
   end
 end
 
@@ -246,7 +296,7 @@ class Blocks
     end
     @bs << b0 << b1
     @ops << OpLineCut.new(block.id, true, pos)
-    cost = (7.0 * (@h * @w) / block.s).round.to_i
+    cost = (OpLineCut.cost * (@h * @w) / block.s).round.to_i
     debug("line_cut_vert cost:#{cost}")
     @total_cost += cost
     return b0, b1
@@ -271,7 +321,7 @@ class Blocks
     end
     @bs << b0 << b1
     @ops << OpLineCut.new(block.id, false, pos)
-    cost = (7.0 * (@h * @w) / block.s).round.to_i
+    cost = (OpLineCut.cost * (@h * @w) / block.s).round.to_i
     debug("line_cut_horz cost:#{cost}")
     @total_cost += cost
     return b0, b1
@@ -325,7 +375,7 @@ class Blocks
     end
     @bs << b0 << b1 << b2 << b3
     @ops << OpPointCut.new(block.id, pos_y, pos_x)
-    cost = (10.0 * (@h * @w) / block.s).round.to_i
+    cost = (OpPointCut.cost * (@h * @w) / block.s).round.to_i
     debug("point_cut     cost:#{cost}")
     @total_cost += cost
     return b0, b1, b2, b3
@@ -335,7 +385,7 @@ class Blocks
     block.areas.clear
     block.areas << Area.new(block.y, block.x, block.h, block.w, color)
     @ops << OpColor.new(block.id, color)
-    cost = (5.0 * (@h * @w) / block.s).round.to_i
+    cost = (OpColor.cost * (@h * @w) / block.s).round.to_i
     debug("color         cost:#{cost}")
     @total_cost += cost
     return block
@@ -356,9 +406,8 @@ class Blocks
       a.y -= my
       a.x -= mx
     end
-    # block0.areas, block1.areas = block1.areas, block0.areas
     @ops << OpSwap.new(block0.id, block1.id)
-    cost = (3.0 * (@h * @w) / block0.s).round.to_i
+    cost = (OpSwap.cost * (@h * @w) / block0.s).round.to_i
     debug("swap          cost:#{cost}")
     @total_cost += cost
     return block0, block1
@@ -399,7 +448,7 @@ class Blocks
     @bs << block_new
     @next_global_block_id += 1
     @ops << OpMerge.new(block0.id, block1.id)
-    cost = (1.0 * (@h * @w) / {block0.s, block1.s}.max).round.to_i
+    cost = (OpMerge.cost * (@h * @w) / {block0.s, block1.s}.max).round.to_i
     debug("merge         cost:#{cost}")
     @total_cost += cost
     return block_new
@@ -433,9 +482,9 @@ class Blocks
     target.h.times do |y|
       target.w.times do |x|
         dist = color_dist(target.pixel[y][x], painted[y][x])
-        if dist > 40.0
-          debug([y, x, target.pixel[y][x], painted[y][x], dist])
-        end
+        # if dist > 40.0
+        #   debug([y, x, target.pixel[y][x], painted[y][x], dist])
+        # end
         sum += dist
       end
     end
