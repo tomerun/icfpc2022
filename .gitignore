@@ -3,6 +3,7 @@ bin/
 doc/
 docs/
 lib/
+output/
 problem/
 *.dwarf
 *.png
