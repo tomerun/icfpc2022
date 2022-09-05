@@ -464,6 +464,14 @@ class Blocks
     return block_new
   end
 
+  def merge_multi(bs)
+    b = bs[0]
+    1.upto(bs.size - 1) do |i|
+      b = merge(b, bs[i])
+    end
+    return b
+  end
+
   def output_ops(io)
     io << @ops.join("\n") << "\n"
   end

@@ -6,6 +6,12 @@ INF        = 1 << 29
 RND        = Random.new(2)
 L          = 400
 
+MERGE_BEST_M = {
+  40 => 5,
+  25 => 6,
+  20 => 7,
+}
+
 class Solver
   def initialize(@id : Int32)
     @target = Target.new(@id)
@@ -26,9 +32,15 @@ class Solver
         end
       end
     else
+      # 2.upto(10) do |i|
+      #   blocks = Blocks.new(@target)
+      #   merge_blocks(blocks, i)
+      #   best_blocks = blocks
+      # end
       dp_sizes.each do |size|
         blocks = Blocks.new(@target)
-        merge_blocks(blocks)
+        merge_blocks(blocks, MERGE_BEST_M[blocks.bs[0].h])
+        assert(blocks.bs.size == 1)
         solve_dp(blocks, size)
         debug("size:#{size} cost:#{blocks.total_cost} similarity:#{blocks.similarity(@target)}")
         if blocks.total_cost + blocks.similarity(@target) < best_blocks.total_cost + best_blocks.similarity(@target)
@@ -36,7 +48,6 @@ class Solver
         end
       end
       # solve_swap(blocks)
-      # best_blocks = blocks
     end
     diff = best_blocks.similarity(@target)
     cost = best_blocks.total_cost
@@ -44,9 +55,11 @@ class Solver
     return best_blocks.ops
   end
 
-  def merge_blocks(blocks)
+  def merge_blocks(blocks, m)
+    size = blocks.bs[0].h
     bs = blocks.bs.sort_by { |b| {b.y, b.x} }.group_by { |b| b.y }
-    rows = bs.keys.sort.map do |y|
+    n = bs.size
+    rows = bs.keys.sort.first(m).map do |y|
       b = bs[y][0]
       1.upto(bs[y].size - 1) do |i|
         b = blocks.merge(b, bs[y][i])
@@ -54,9 +67,31 @@ class Solver
       b
     end.to_a
     b = rows[0]
-    1.upto(rows.size - 1) do |i|
+    1.upto(m - 1) do |i|
       b = blocks.merge(b, rows[i])
     end
+    cols = (n // 2).times.map do |i|
+      cur, b = blocks.line_cut_vert(b, size)
+      cells = blocks.bs.select { |b| b.x == cur.x && b != cur }.sort_by { |b| b.y }
+      cells.each do |cell|
+        cur = blocks.merge(cur, cell)
+      end
+      cur
+    end.to_a
+    left = blocks.merge_multi(cols)
+    l_b, t_b = blocks.line_cut_horz(left, size * m)
+    b = blocks.merge(l_b, b)
+    cols = (n // 2).times.map do |i|
+      b, cur = blocks.line_cut_vert(b, b.w - size)
+      cells = blocks.bs.select { |b| b.x == cur.x && b != cur }.sort_by { |b| b.y }
+      cells.each do |cell|
+        cur = blocks.merge(cur, cell)
+      end
+      cur
+    end.to_a
+    left = blocks.merge(b, t_b)
+    b = blocks.merge_multi([left] + cols.reverse)
+    debug(["merge_cost", m, blocks.total_cost])
   end
 
   def solve_dp(blocks, size)
