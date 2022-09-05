@@ -502,6 +502,22 @@ class Blocks
     return (sum * alpha).round.to_i
   end
 
+  def similarity_raw(target, block, color)
+    painted = bitmap()
+    assert(target.h == painted.size)
+    assert(target.w == painted[0].size)
+    sum = 0.0
+    block.areas.each do |a|
+      a.y.upto(a.top - 1) do |y|
+        a.x.upto(a.right - 1) do |x|
+          dist = color_dist(target.pixel[y][x], color)
+          sum += dist
+        end
+      end
+    end
+    return sum
+  end
+
   def create_image(file_name)
     painted = bitmap()
     canvas = StumpyCore::Canvas.new(@w, @h)

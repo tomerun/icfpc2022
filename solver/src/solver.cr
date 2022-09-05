@@ -144,7 +144,7 @@ class Solver
     end
 
     # cut vertical
-    (left + 1).upto(top) do |mid|
+    (left + 1).upto(right) do |mid|
       cost = dp[bottom][left][top][mid - 1] + dp[bottom][mid][top][right]
       cost += (OpLineCut.cost * L * L / (wh_h * wh_w)).round.to_i
       cost += (OpMerge.cost * L * L / (wh_h * {mid - left, right - mid + 1}.max * size)).round.to_i
@@ -157,7 +157,7 @@ class Solver
     # cut point
     (bottom + 1).upto(top) do |mid_y|
       bottom_len = (mid_y - bottom) * size
-      (left + 1).upto(top) do |mid_x|
+      (left + 1).upto(right) do |mid_x|
         left_len = (mid_x - left) * size
         cost = dp[bottom][left][mid_y - 1][mid_x - 1] + dp[bottom][mid_x][mid_y - 1][right] +
                dp[mid_y][left][top][mid_x - 1] + dp[mid_y][mid_x][top][right]
@@ -194,13 +194,46 @@ class Solver
   end
 
   def solve_swap(blocks)
-    # TODO
+    bs = blocks.bs
+    color_set = bs.map { |b| b.areas }.flatten.map { |a| a.c }.to_set
+    debug("color_set size: #{color_set.size}")
+    similarity = Hash(Tuple(Int32, Int32, RGB), Float64).new
+    bs.each do |b|
+      color_set.each do |c|
+        similarity[{b.y, b.x, c}] = blocks.similarity_raw(@target, b, c)
+      end
+    end
+    n = bs.size
+    swap_cost = (OpSwap.cost * L * L / (bs[0].h * bs[0].w)).round.to_i
+    n.times do
+      best_cost = 0
+      best_swap = {0, 0}
+      n.times do |i|
+        i.times do |j|
+          diff = similarity[{bs[i].y, bs[i].x, bs[j].areas[0].c}]
+          diff += similarity[{bs[j].y, bs[j].x, bs[i].areas[0].c}]
+          diff -= similarity[{bs[i].y, bs[i].x, bs[i].areas[0].c}]
+          diff -= similarity[{bs[j].y, bs[j].x, bs[j].areas[0].c}]
+          cost = swap_cost + diff
+          if cost < best_cost
+            best_cost = cost
+            best_swap = {i, j}
+          end
+        end
+      end
+      break if best_cost >= 0
+      # TODO: wise swap
+      blocks.swap(bs[best_swap[0]], bs[best_swap[1]])
+    end
   end
 end
 
 def main
   solver = Solver.new(ARGV[0].to_i)
   ops = solver.solve
+  while !ops[-1].is_a?(OpColor)
+    ops.pop
+  end
   puts ops.join("\n")
 end
 
