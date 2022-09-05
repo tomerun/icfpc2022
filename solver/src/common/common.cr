@@ -39,6 +39,10 @@ class Target
   getter :id, :h, :w, :pixel
 
   def initialize(@id : Int32)
+    if @id >= 36
+      OpLineCut.cost = 2
+      OpPointCut.cost = 3
+    end
     @h = @w = 0
     @pixel = [] of Array(RGB)
     File.open(PROBLEM_PATH.join(sprintf("%04d.txt", @id))) do |f|
@@ -53,7 +57,7 @@ class Target
         end
       end
     end
-    @histos = Array(Array(Array(Array(Int32)))).new(4) { Array.new(@h + 1) { Array.new(@w + 1) { Array.new(256, 0) } } }
+    @histos = Array(Array(Array(Array(Int32)))).new(3) { Array.new(@h + 1) { Array.new(@w + 1) { Array.new(256, 0) } } }
     3.times do |i|
       @h.times do |y|
         @w.times do |x|
