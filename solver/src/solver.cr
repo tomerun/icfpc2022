@@ -23,53 +23,106 @@ class Solver
     best_blocks = blocks
     @dp_row = [0]
     @dp_col = [0]
-    dp_len = 20
-    bbox = [0, 0, 0, 0]
-    L.times do |y|
-      if L.times.any? { |x| @target.pixel[y][x] != @target.pixel[y + 1][x] }
-        bbox[0] = y
-        break
-      end
+    dp_len = 71 # change manually
+
+    diff_y = Array.new(L - 1) do |y|
+      L.times.sum { |x| color_dist(@target.pixel[y][x], @target.pixel[y + 1][x]) }
     end
-    (L - 1).downto(1) do |y|
-      if L.times.any? { |x| @target.pixel[y][x] != @target.pixel[y - 1][x] }
-        bbox[1] = y
-        break
-      end
-    end
-    L.times do |x|
-      if L.times.any? { |y| @target.pixel[y][x] != @target.pixel[y][x + 1] }
-        bbox[2] = x
-        break
-      end
-    end
-    (L - 1).downto(1) do |x|
-      if L.times.any? { |y| @target.pixel[y][x] != @target.pixel[y][x - 1] }
-        bbox[3] = x
-        break
-      end
-    end
-    bbox[0] = {bbox[0], 3}.max
-    bbox[1] = {bbox[1], L - 3}.min
-    bbox[2] = {bbox[2], 3}.max
-    bbox[3] = {bbox[3], L - 3}.min
-    debug("bbox:#{bbox}")
-    (dp_len - 1).times do |i|
-      base_y = bbox[0] + i * (bbox[1] - bbox[0]) // (dp_len - 2)
-      row_pos = ({@dp_row[-1] + 2, (base_y - 2)}.max..(base_y + 2)).max_by do |y|
-        L.times.sum do |x|
-          color_dist(@target.pixel[y - 1][x], @target.pixel[y][x])
+    dp = Array.new(L + 1) { Array.new(dp_len, -1.0) }
+    back = Array.new(L + 1) { Array.new(dp_len, 0) }
+    dp[0][0] = 0.0
+    L.times do |i|
+      (dp_len - 1).times do |j|
+        next if dp[i][j] == -1.0
+        (i + 4).upto(L - 1) do |k|
+          if dp[k][j + 1] < dp[i][j] + diff_y[k - 1]
+            dp[k][j + 1] = dp[i][j] + diff_y[k - 1]
+            back[k][j + 1] = i
+          end
         end
       end
-      @dp_row << row_pos
-      base_x = bbox[2] + i * (bbox[3] - bbox[2]) // (dp_len - 2)
-      col_pos = ({@dp_col[-1] + 2, (base_x - 2)}.max..(base_x + 2)).max_by do |x|
-        L.times.sum do |y|
-          color_dist(@target.pixel[y][x - 1], @target.pixel[y][x])
+    end
+    y = (0..(L - 1)).max_by { |i| dp[i][dp_len - 1] }
+    a = [y]
+    (dp_len - 2).times do |i|
+      prev = back[y][dp_len - 1 - i]
+      a << prev
+      y = prev
+    end
+    @dp_row.concat(a.reverse)
+
+    diff_x = Array.new(L - 1) do |x|
+      L.times.sum { |y| color_dist(@target.pixel[y][x], @target.pixel[y][x + 1]) }
+    end
+    dp = Array.new(L + 1) { Array.new(dp_len, -1.0) }
+    back = Array.new(L + 1) { Array.new(dp_len, 0) }
+    dp[0][0] = 0.0
+    L.times do |i|
+      (dp_len - 1).times do |j|
+        next if dp[i][j] == -1.0
+        (i + 4).upto(L - 1) do |k|
+          if dp[k][j + 1] < dp[i][j] + diff_x[k - 1]
+            dp[k][j + 1] = dp[i][j] + diff_x[k - 1]
+            back[k][j + 1] = i
+          end
         end
       end
-      @dp_col << col_pos
     end
+    x = (0..(L - 1)).max_by { |i| dp[i][dp_len - 1] }
+    a = [x]
+    (dp_len - 2).times do |i|
+      prev = back[x][dp_len - 1 - i]
+      a << prev
+      x = prev
+    end
+    @dp_col.concat(a.reverse)
+
+    # bbox = [0, 0, 0, 0]
+    # L.times do |y|
+    #   if L.times.any? { |x| @target.pixel[y][x] != @target.pixel[y + 1][x] }
+    #     bbox[0] = y
+    #     break
+    #   end
+    # end
+    # (L - 1).downto(1) do |y|
+    #   if L.times.any? { |x| @target.pixel[y][x] != @target.pixel[y - 1][x] }
+    #     bbox[1] = y
+    #     break
+    #   end
+    # end
+    # L.times do |x|
+    #   if L.times.any? { |y| @target.pixel[y][x] != @target.pixel[y][x + 1] }
+    #     bbox[2] = x
+    #     break
+    #   end
+    # end
+    # (L - 1).downto(1) do |x|
+    #   if L.times.any? { |y| @target.pixel[y][x] != @target.pixel[y][x - 1] }
+    #     bbox[3] = x
+    #     break
+    #   end
+    # end
+    # bbox[0] = {bbox[0], L // dp_len}.max
+    # bbox[1] = {bbox[1], L - L // dp_len}.min
+    # bbox[2] = {bbox[2], L // dp_len}.max
+    # bbox[3] = {bbox[3], L - L // dp_len}.min
+    # debug("bbox:#{bbox}")
+    # (dp_len - 1).times do |i|
+    #   base_y = bbox[0] + i * (bbox[1] - bbox[0]) // (dp_len - 2)
+    #   row_pos = ({@dp_row[-1] + 1, (base_y - 3)}.max..{(base_y + 3), L - 1}.min).max_by do |y|
+    #     L.times.sum do |x|
+    #       color_dist(@target.pixel[y - 1][x], @target.pixel[y][x])
+    #     end
+    #   end
+    #   @dp_row << row_pos
+    #   base_x = bbox[2] + i * (bbox[3] - bbox[2]) // (dp_len - 2)
+    #   col_pos = ({@dp_col[-1] + 1, (base_x - 3)}.max..{(base_x + 3), L - 1}.min).max_by do |x|
+    #     L.times.sum do |y|
+    #       color_dist(@target.pixel[y][x - 1], @target.pixel[y][x])
+    #     end
+    #   end
+    #   @dp_col << col_pos
+    # end
     @dp_row << L
     @dp_col << L
     debug("dp_row:#{@dp_row}")
